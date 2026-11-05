@@ -196,3 +196,24 @@ def confirm_and_notify(db: Session, booking_id: int) -> Booking | None:
     if booking is not None and newly_confirmed:
         notify_booking_confirmed(db, booking)
     return booking
+
+
+
+def cancel_booking(db: Session, booking_id: int) -> Booking | None:
+    """Release a pending booking (failed payment). Returns it if it was cancelled."""
+    booking = db.get(Booking, booking_id)
+    if booking is None or booking.status != "pending":
+        return None
+    booking.status = "cancelled"
+    db.commit()
+    db.refresh(booking)
+    return booking
+
+
+def notify_payment_failed(db: Session, booking: Booking) -> None:
+    guest = booking.guest
+    send_sms(
+        guest.phone,
+        t(guest.language, "sms_payment_failed", ref=booking_ref(booking),
+          name=booking.property.name),
+    )

@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     # Share of each booking's total that goes to the community fund.
     community_fund_rate: float = 0.05
 
+    # "console" simulates the M-Pesa prompt; "africastalking" calls the real API.
+    payment_mode: str = "console"
+    # Name of your Payment Product in the Africa's Talking dashboard.
+    at_payment_product: str = ""
+    # Secret path segment protecting the public payment callback URL.
+    payment_callback_secret: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

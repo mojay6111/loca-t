@@ -37,7 +37,7 @@ STRINGS = {
         "Total KES {total}\nDeposit KES {deposit}\n"
         "1. Confirm\n2. Cancel"
     ),
-    "booking_saved": "Reserved! Ref {ref}. Deposit KES {deposit}. Payment steps by SMS soon.",
+    "booking_saved": "Reserved! Ref {ref}. Check your phone and enter your M-Pesa PIN to pay the KES {deposit} deposit.",
     "my_bookings": "Your bookings:\n{lines}",
     "no_bookings": "You have no bookings yet.",
     "status_pending": "pending",
@@ -53,5 +53,11 @@ STRINGS = {
     "sms_host_new_booking": (
         "New booking {ref}: {guests} guest(s), {check_in} to {check_out}. "
         "Deposit KES {deposit} received. Your share of the total: KES {host_amount}."
+    ),
+
+    "payment_not_started": "Could not start the M-Pesa payment. Nothing was charged. Please try again.",
+    "sms_payment_failed": (
+        "Payment for {ref} ({name}) did not go through, so the booking was "
+        "released. Dial again to rebook."
     ),
 }

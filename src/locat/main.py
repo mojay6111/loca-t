@@ -6,6 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from locat.api.routes_ussd import router as ussd_router
+from locat.api.routes_payments import router as payments_router
 from locat.config import get_settings
 from locat.db import models  # noqa: F401  (registers tables on Base)
 from locat.db.session import Base, engine, get_db
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.include_router(ussd_router)
+app.include_router(payments_router)
 
 
 @app.get("/health")

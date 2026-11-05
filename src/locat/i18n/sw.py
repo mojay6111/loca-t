@@ -36,7 +36,7 @@ STRINGS = {
         "Jumla KES {total}\nAmana KES {deposit}\n"
         "1. Thibitisha\n2. Ghairi"
     ),
-    "booking_saved": "Imehifadhiwa! Namba {ref}. Amana KES {deposit}. Maelezo ya malipo kwa SMS hivi karibuni.",
+    "booking_saved": "Imehifadhiwa! Namba {ref}. Angalia simu yako, weka PIN ya M-Pesa kulipa amana ya KES {deposit}.",
     "my_bookings": "Nafasi zako:\n{lines}",
     "no_bookings": "Huna nafasi bado.",
     "status_pending": "inasubiri",
@@ -52,5 +52,11 @@ STRINGS = {
     "sms_host_new_booking": (
         "Nafasi mpya {ref}: wageni {guests}, {check_in} hadi {check_out}. "
         "Amana KES {deposit} imepokelewa. Mgao wako wa jumla: KES {host_amount}."
+    ),
+    
+    "payment_not_started": "Imeshindwa kuanza malipo ya M-Pesa. Hakuna kilichokatwa. Jaribu tena.",
+    "sms_payment_failed": (
+        "Malipo ya {ref} ({name}) hayakukamilika, kwa hivyo nafasi imeachiliwa. "
+        "Piga tena kuhifadhi."
     ),
 }

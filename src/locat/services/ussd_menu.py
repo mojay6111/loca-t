@@ -21,6 +21,7 @@ from locat.services.booking_service import (
     register_property,
     rooms_taken,
 )
+from locat.services.payments_service import PaymentStartError, initiate_deposit
 
 # Shared later with the forecasting layer, so keep the spelling consistent.
 DESTINATIONS = ["Maasai Mara", "Naivasha", "Diani", "Lamu", "Amboseli"]
@@ -174,6 +175,10 @@ def _find_stay(db: Session, phone: str, lang: str, args: list[str]) -> str:
 
     if m == 3 and rest[2] == "1":
         booking = create_booking(db, phone, prop, check_in, nights, guests)
+        try:
+            initiate_deposit(db, booking)
+        except PaymentStartError:
+            return _end(t(lang, "payment_not_started"))
         return _end(
             t(lang, "booking_saved", ref=booking_ref(booking),
               deposit=f"{booking.deposit_amount:.0f}")
