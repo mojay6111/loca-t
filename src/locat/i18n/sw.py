@@ -43,4 +43,14 @@ STRINGS = {
     "status_confirmed": "imethibitishwa",
     "status_cancelled": "imeghairiwa",
     "status_completed": "imekamilika",
+
+    "sms_guest_confirmed": (
+        "Nafasi imethibitishwa! {name}, {destination}. {check_in} hadi {check_out}, "
+        "wageni {guests}. Namba {ref}. Umelipa KES {deposit}, salio KES {balance} "
+        "ukifika. Karibu sana!"
+    ),
+    "sms_host_new_booking": (
+        "Nafasi mpya {ref}: wageni {guests}, {check_in} hadi {check_out}. "
+        "Amana KES {deposit} imepokelewa. Mgao wako wa jumla: KES {host_amount}."
+    ),
 }

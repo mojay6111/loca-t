@@ -15,6 +15,11 @@ class Settings(BaseSettings):
 
     public_base_url: str = ""
 
+    # "console" prints SMS in the server terminal; "africastalking" really sends.
+    sms_mode: str = "console"
+    # Share of each booking's total that goes to the community fund.
+    community_fund_rate: float = 0.05
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

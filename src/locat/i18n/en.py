@@ -44,4 +44,14 @@ STRINGS = {
     "status_confirmed": "confirmed",
     "status_cancelled": "cancelled",
     "status_completed": "completed",
+
+    "sms_guest_confirmed": (
+        "Booking confirmed! {name}, {destination}. {check_in} to {check_out}, "
+        "{guests} guest(s). Ref {ref}. Paid KES {deposit}, balance KES {balance} "
+        "on arrival. See you soon!"
+    ),
+    "sms_host_new_booking": (
+        "New booking {ref}: {guests} guest(s), {check_in} to {check_out}. "
+        "Deposit KES {deposit} received. Your share of the total: KES {host_amount}."
+    ),
 }

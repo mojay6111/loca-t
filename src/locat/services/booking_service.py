@@ -6,6 +6,9 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from locat.db.models import Booking, Property, User
+from locat.i18n import t
+from locat.services.sms_service import send_sms
+from locat.services.split_service import record_split
 
 DEPOSIT_RATE = 0.30   # share of the total taken as deposit
 HOLD_MINUTES = 15     # how long an unpaid (pending) booking holds its rooms
@@ -138,3 +141,58 @@ def recent_bookings_for_user(db: Session, user: User, limit: int = 3) -> list[Bo
     else:
         stmt = select(Booking).where(Booking.guest_id == user.id)
     return list(db.scalars(stmt.order_by(Booking.id.desc()).limit(limit)))
+
+
+
+def _fmt_date(d: date) -> str:
+    return d.strftime("%a %d %b")
+
+
+def confirm_booking(db: Session, booking_id: int) -> tuple[Booking | None, bool]:
+    """Mark a pending booking confirmed. Returns (booking, newly_confirmed)."""
+    booking = db.get(Booking, booking_id)
+    if booking is None:
+        return None, False
+    if booking.status != "pending":  # already confirmed, cancelled or completed
+        return booking, False
+
+    booking.status = "confirmed"
+    db.commit()
+    db.refresh(booking)
+    record_split(db, booking)
+    return booking, True
+
+
+def notify_booking_confirmed(db: Session, booking: Booking) -> None:
+    """SMS the guest and the host, each in their own language."""
+    prop = booking.property
+    guest = booking.guest
+    host = prop.host
+    split = record_split(db, booking)
+
+    ref = booking_ref(booking)
+    check_in = _fmt_date(booking.check_in)
+    check_out = _fmt_date(booking.check_out)
+    deposit = f"{booking.deposit_amount:.0f}"
+    balance = f"{booking.total_amount - booking.deposit_amount:.0f}"
+
+    send_sms(
+        guest.phone,
+        t(guest.language, "sms_guest_confirmed", name=prop.name,
+          destination=prop.destination, check_in=check_in, check_out=check_out,
+          guests=booking.guests, ref=ref, deposit=deposit, balance=balance),
+    )
+    send_sms(
+        host.phone,
+        t(host.language, "sms_host_new_booking", ref=ref, guests=booking.guests,
+          check_in=check_in, check_out=check_out, deposit=deposit,
+          host_amount=f"{split.host_amount:.0f}"),
+    )
+
+
+def confirm_and_notify(db: Session, booking_id: int) -> Booking | None:
+    """The one call the payment callback will make. SMS goes out only once."""
+    booking, newly_confirmed = confirm_booking(db, booking_id)
+    if booking is not None and newly_confirmed:
+        notify_booking_confirmed(db, booking)
+    return booking
