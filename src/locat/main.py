@@ -11,8 +11,24 @@ from locat.config import get_settings
 from locat.db import models  # noqa: F401  (registers tables on Base)
 from locat.db.session import Base, engine, get_db
 
+import logging
+
 settings = get_settings()
 
+class _RedactCallbackSecret(logging.Filter):
+    """Keep the payment callback secret out of uvicorn's access log."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        secret = get_settings().payment_callback_secret
+        if secret and isinstance(record.args, tuple):
+            record.args = tuple(
+                a.replace(secret, "***") if isinstance(a, str) else a
+                for a in record.args
+            )
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(_RedactCallbackSecret())
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
