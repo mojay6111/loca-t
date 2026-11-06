@@ -1,4 +1,4 @@
-"""Payment callback (called by Africa's Talking) and a dev-only simulator."""
+"""Payment callback (called by Safaricom Daraja) and a dev-only simulator."""
 import json
 import secrets
 from urllib.parse import parse_qs
@@ -32,6 +32,22 @@ async def _read_payload(request: Request) -> dict:
     return {key: values[0] for key, values in parse_qs(text).items()}
 
 
+def _extract_result(payload: dict) -> tuple[str, str]:
+    """Return (provider_ref, status_text).
+
+    Daraja nests the result in Body.stkCallback (ResultCode 0 = paid; anything
+    else, such as 1032 'cancelled by user', is a failure). The flat
+    {transactionId, status} form is kept for manual tests.
+    """
+    body = payload.get("Body")
+    stk = body.get("stkCallback") if isinstance(body, dict) else None
+    if isinstance(stk, dict):
+        ref = str(stk.get("CheckoutRequestID", ""))
+        status = "Success" if str(stk.get("ResultCode")) == "0" else "Failed"
+        return ref, status
+    return str(payload.get("transactionId", "")), str(payload.get("status", ""))
+
+
 @router.post("/callback/{secret}")
 async def payment_callback(
     secret: str, request: Request, db: Session = Depends(get_db)
@@ -41,12 +57,14 @@ async def payment_callback(
         raise HTTPException(status_code=404)
 
     payload = await _read_payload(request)
-    payment = apply_payment_result(
-        db,
-        provider_ref=str(payload.get("transactionId", "")),
-        status_text=str(payload.get("status", "")),
-    )
-    return {"received": True, "matched": payment is not None}
+    provider_ref, status_text = _extract_result(payload)
+    payment = apply_payment_result(db, provider_ref, status_text)
+    return {
+        "ResultCode": 0,
+        "ResultDesc": "Accepted",
+        "received": True,
+        "matched": payment is not None,
+    }
 
 
 @router.post("/simulate/{booking_id}")

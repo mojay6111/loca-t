@@ -20,12 +20,18 @@ class Settings(BaseSettings):
     # Share of each booking's total that goes to the community fund.
     community_fund_rate: float = 0.05
 
-    # "console" simulates the M-Pesa prompt; "africastalking" calls the real API.
+    # "console" simulates the M-Pesa prompt; "daraja" calls Safaricom's API.
     payment_mode: str = "console"
-    # Name of your Payment Product in the Africa's Talking dashboard.
-    at_payment_product: str = ""
     # Secret path segment protecting the public payment callback URL.
     payment_callback_secret: str = ""
+
+    daraja_base_url: str = "https://sandbox.safaricom.co.ke"
+    daraja_consumer_key: str = ""
+    daraja_consumer_secret: str = ""
+    daraja_shortcode: str = "174379"
+    daraja_passkey: str = ""
+        # Sandbox only: send the STK prompt to Daraja's test number instead of the guest's.
+    daraja_test_msisdn: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

@@ -1,5 +1,8 @@
-"""M-Pesa deposits: a console simulator for development, Africa's Talking for real."""
+"""M-Pesa deposits: a console simulator for development, Daraja STK push for the sandbox."""
+import base64
+import time
 import uuid
+from datetime import datetime
 
 import httpx
 from sqlalchemy import select
@@ -14,17 +17,18 @@ from locat.services.booking_service import (
     notify_payment_failed,
 )
 
-AT_CHECKOUT_URLS = {
-    "sandbox": "https://payments.sandbox.africastalking.com/mobile/checkout/request",
-    "live": "https://payments.africastalking.com/mobile/checkout/request",
-}
 SUCCESS_WORDS = {"success", "completed"}
 STILL_PENDING_WORDS = {"pending", "pendingconfirmation", "queued", ""}
+
+# Daraja access tokens last about an hour; reuse one so USSD stays fast.
+_token_cache: dict = {"token": None, "expires_at": 0.0}
 
 
 class PaymentStartError(Exception):
     """The M-Pesa request could not be started (nothing was charged)."""
 
+
+# ---------- console simulator ----------
 
 def _start_console(payment: Payment, booking: Booking) -> str:
     ref = f"SIM-{uuid.uuid4().hex[:12]}"
@@ -41,40 +45,110 @@ def _start_console(payment: Payment, booking: Booking) -> str:
     return ref
 
 
-def _start_africastalking(payment: Payment, booking: Booking) -> str:
-    settings = get_settings()
-    if not settings.at_api_key or not settings.at_payment_product:
-        raise PaymentStartError("AT_API_KEY and AT_PAYMENT_PRODUCT must be set in .env")
+# ---------- Safaricom Daraja (M-Pesa Express) ----------
 
-    env = "sandbox" if settings.at_username == "sandbox" else "live"
-    body = {
-        "username": settings.at_username,
-        "productName": settings.at_payment_product,
-        "phoneNumber": payment.phone,
-        "currencyCode": "KES",
-        "amount": payment.amount,
-        "metadata": {"booking_id": str(booking.id), "ref": booking_ref(booking)},
-    }
-    headers = {
-        "apiKey": settings.at_api_key,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
+def _daraja_token() -> str:
+    settings = get_settings()
+    if _token_cache["token"] and time.time() < _token_cache["expires_at"]:
+        return _token_cache["token"]
+
+    if not settings.daraja_consumer_key or not settings.daraja_consumer_secret:
+        raise PaymentStartError(
+            "DARAJA_CONSUMER_KEY and DARAJA_CONSUMER_SECRET must be set in .env"
+        )
+
     try:
-        response = httpx.post(AT_CHECKOUT_URLS[env], json=body, headers=headers, timeout=20)
+        response = httpx.get(
+            f"{settings.daraja_base_url}/oauth/v1/generate",
+            params={"grant_type": "client_credentials"},
+            auth=(settings.daraja_consumer_key, settings.daraja_consumer_secret),
+            timeout=15,
+        )
+    except httpx.HTTPError as exc:
+        raise PaymentStartError(f"token request failed: {exc}") from exc
+
+    if response.status_code != 200:
+        print(f"[Daraja token] HTTP {response.status_code}: {response.text}", flush=True)
+        raise PaymentStartError("could not get a Daraja access token")
+
+    try:
+        data = response.json()
+        token = data["access_token"]
+        lifetime = int(data.get("expires_in", 3599))
+    except (ValueError, KeyError) as exc:
+        raise PaymentStartError("unexpected token response") from exc
+
+    _token_cache["token"] = token
+    _token_cache["expires_at"] = time.time() + lifetime - 60
+    return token
+
+
+def _start_daraja(payment: Payment, booking: Booking) -> str:
+    settings = get_settings()
+    if not settings.daraja_passkey:
+        raise PaymentStartError("DARAJA_PASSKEY must be set in .env")
+    if not settings.public_base_url or not settings.payment_callback_secret:
+        raise PaymentStartError(
+            "PUBLIC_BASE_URL and PAYMENT_CALLBACK_SECRET must be set in .env"
+        )
+
+    token = _daraja_token()
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    password = base64.b64encode(
+        f"{settings.daraja_shortcode}{settings.daraja_passkey}{timestamp}".encode()
+    ).decode()
+    phone = payment.phone.lstrip("+")  # Daraja wants 2547XXXXXXXX
+    if settings.daraja_test_msisdn and "sandbox" in settings.daraja_base_url:
+        print(
+            f"[Daraja STK] sandbox override: prompting the test number "
+            f"instead of {payment.phone}",
+            flush=True,
+        )
+        phone = settings.daraja_test_msisdn.lstrip("+")
+        
+    body = {
+        "BusinessShortCode": settings.daraja_shortcode,
+        "Password": password,
+        "Timestamp": timestamp,
+        "TransactionType": "CustomerPayBillOnline",
+        "Amount": int(round(payment.amount)),
+        "PartyA": phone,
+        "PartyB": settings.daraja_shortcode,
+        "PhoneNumber": phone,
+        "CallBackURL": (
+            f"{settings.public_base_url.rstrip('/')}"
+            f"/payments/callback/{settings.payment_callback_secret}"
+        ),
+        "AccountReference": booking_ref(booking),
+        "TransactionDesc": "Deposit",
+    }
+
+    try:
+        response = httpx.post(
+            f"{settings.daraja_base_url}/mpesa/stkpush/v1/processrequest",
+            json=body,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=20,
+        )
     except httpx.HTTPError as exc:
         raise PaymentStartError(f"network error: {exc}") from exc
 
-    print(f"[AT checkout] HTTP {response.status_code}: {response.text}", flush=True)
+    # We print the response only, never the request (it holds the password and secret).
+    print(f"[Daraja STK] HTTP {response.status_code}: {response.text}", flush=True)
+    if response.status_code == 401:
+        _token_cache["token"] = None  # force a fresh token next time
+
     try:
         data = response.json()
     except ValueError as exc:
         raise PaymentStartError("response was not JSON") from exc
 
-    if data.get("status") != "PendingConfirmation" or not data.get("transactionId"):
-        raise PaymentStartError(f"unexpected response: {data}")
-    return data["transactionId"]
+    if str(data.get("ResponseCode")) != "0" or not data.get("CheckoutRequestID"):
+        raise PaymentStartError(f"request not accepted: {data}")
+    return data["CheckoutRequestID"]
 
+
+# ---------- shared logic ----------
 
 def initiate_deposit(db: Session, booking: Booking) -> Payment:
     """Ask the guest's phone to pay the deposit. Releases the booking on failure."""
@@ -88,13 +162,16 @@ def initiate_deposit(db: Session, booking: Booking) -> Payment:
     db.commit()
     db.refresh(payment)
 
-    settings = get_settings()
+    mode = get_settings().payment_mode
     try:
-        if settings.payment_mode == "africastalking":
-            ref = _start_africastalking(payment, booking)
-        else:
+        if mode == "daraja":
+            ref = _start_daraja(payment, booking)
+        elif mode == "console":
             ref = _start_console(payment, booking)
-    except PaymentStartError:
+        else:
+            raise PaymentStartError(f"unknown PAYMENT_MODE '{mode}'")
+    except PaymentStartError as exc:
+        print(f"[payment start failed] {exc}", flush=True)
         payment.status = "failed"
         db.commit()
         cancel_booking(db, booking.id)
