@@ -44,6 +44,7 @@ def generate_history(
     settings: dict,
     idx_by_month: dict,
     history_end: pd.Timestamp,
+    normalise_until: pd.Timestamp | None = None,
 ) -> pd.DataFrame:
     """Return a long table: date, destination, latent_demand, occupancy, source.
 
@@ -55,8 +56,9 @@ def generate_history(
     intl_smooth = smooth_intl_index(cal["date"], idx_by_month)
     years = (cal["date"] - pd.Timestamp("2024-01-01")).dt.days / 365.25
     growth = ((1 + settings["annual_growth"]) ** years).to_numpy()
-    in_history = (cal["date"] <= history_end).to_numpy()
-
+    norm_end = history_end if normalise_until is None else normalise_until
+    in_norm = (cal["date"] <= norm_end).to_numpy()
+    
     rng = np.random.default_rng(settings["seed"])
     phi, sd = settings["noise_ar"], settings["noise_sd"]
 
@@ -71,8 +73,8 @@ def generate_history(
             * np.where(cal["easter_period"] == 1, settings["easter_extra"], 1.0)
             * np.where(cal["payday_window"] == 1, settings["payday_boost"], 1.0)
         )
-        domestic = domestic / domestic[in_history].mean()
-
+        domestic = domestic / domestic[in_norm].mean()
+        
         mixture = p["intl_share"] * intl_smooth + (1 - p["intl_share"]) * domestic
         own_season = cal["month"].map(
             lambda m: month_adjust.loc[dest, MONTH_LABELS[m - 1]]
