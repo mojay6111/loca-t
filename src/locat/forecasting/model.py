@@ -25,6 +25,10 @@ def predict_occupancy(model, features: pd.DataFrame, dates) -> pd.Series:
     pred = np.exp(model.predict(features.loc[dates]))
     return pd.Series(np.clip(pred, 0.01, CAP), index=dates)
 
+def predict_demand(model, features: pd.DataFrame, dates) -> pd.Series:
+    """Unclipped prediction: demand as a share of rooms. It can exceed the cap, which is
+    how the advisor sees demand above the rooms available."""
+    return pd.Series(np.exp(model.predict(features.loc[dates])), index=dates)
 
 def add_interval(point: pd.Series, q_lo: float, q_hi: float) -> pd.DataFrame:
     return pd.DataFrame({
@@ -56,5 +60,9 @@ class OccupancyForecaster:
         point = predict_occupancy(self.models[destination], self.features, dates)
         q = self.quantiles.loc[destination]
         out = add_interval(point, q["q10"], q["q90"])
+        demand = predict_demand(self.models[destination], self.features, dates)
+        out["demand"] = demand
+        out["demand_low"] = demand * np.exp(q["q10"])
+        out["demand_high"] = demand * np.exp(q["q90"])
         out.index.name = "date"
         return out
