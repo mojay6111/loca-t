@@ -37,7 +37,6 @@ def add_interval(point: pd.Series, q_lo: float, q_hi: float) -> pd.DataFrame:
         "upper": np.clip(point * np.exp(q_hi), 0.0, CAP),
     })
 
-
 @dataclass
 class OccupancyForecaster:
     features: pd.DataFrame          # from build_features, covering history and future
@@ -55,11 +54,11 @@ class OccupancyForecaster:
 
     def forecast(self, destination: str, horizon: int = 28, start=None) -> pd.DataFrame:
         """Forecast with an 80% interval. Default start: the day after the last history day."""
-        first = self.last_date + pd.Timedelta(days=1) if start is None else pd.Timestamp(start)
+        first = self.last_date + pd.Timedelta(days=1) if start is None else pd.Timestamp(start) # type: ignore
         dates = pd.date_range(first, periods=horizon)
         point = predict_occupancy(self.models[destination], self.features, dates)
         q = self.quantiles.loc[destination]
-        out = add_interval(point, q["q10"], q["q90"])
+        out = add_interval(point, q["q10"], q["q90"]) # type: ignore
         demand = predict_demand(self.models[destination], self.features, dates)
         out["demand"] = demand
         out["demand_low"] = demand * np.exp(q["q10"])
