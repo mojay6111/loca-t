@@ -33,6 +33,11 @@ class Settings(BaseSettings):
         # Sandbox only: send the STK prompt to Daraja's test number instead of the guest's.
     daraja_test_msisdn: str = ""
 
+    # Folder with the data and model inputs from notebooks 02-05 (relative to the project root)
+    data_dir: str = "data/processed"
+    # Demo clock: forecasts start on this date (YYYY-MM-DD); empty means today
+    demo_today: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

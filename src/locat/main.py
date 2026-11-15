@@ -12,6 +12,7 @@ from locat.db import models  # noqa: F401  (registers tables on Base)
 from locat.db.session import Base, engine, get_db
 
 import logging
+from locat.api.routes_dashboard import router as dashboard_router
 
 settings = get_settings()
 
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.include_router(ussd_router)
 app.include_router(payments_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/health")
