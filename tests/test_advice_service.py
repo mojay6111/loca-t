@@ -34,3 +34,18 @@ def test_days_are_clipped_to_the_calendar():
 def test_start_beyond_the_calendar_raises():
     with pytest.raises(ValueError):
         svc.advice_for_property(FakeProperty(), days=7, start="2027-06-01")
+        
+        
+def test_ussd_outlook_fits_one_screen():
+    a = svc.advice_for_property(FakeProperty(), days=60, start="2026-11-26")
+    for lang in ("en", "sw"):
+        text = svc.render_outlook(a, "Bibi Akinyi Homestay", lang, "ussd")
+        assert len(text) <= 170
+        assert "25 Dec" in text and "4,700" in text
+
+
+def test_sms_digest_has_quiet_stretch_and_fits_two_sms():
+    a = svc.advice_for_property(FakeProperty(), days=60, start="2026-11-26")
+    for lang, word in (("en", "Quiet"), ("sw", "Utulivu")):
+        text = svc.render_outlook(a, "Bibi Akinyi Homestay", lang, "sms")
+        assert word in text and len(text) <= 306

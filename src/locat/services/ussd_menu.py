@@ -4,11 +4,13 @@ Africa's Talking sends the full chain of answers in `text`, joined by '*'
 (for example "1*2*1"). We read that chain on every request, so no per-step
 state needs saving. Replies start with "CON " (continue) or "END ".
 """
+import logging
 from datetime import date, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from locat.db.models import User
+from locat.db.models import Property, User
 from locat.i18n import t
 from locat.services.booking_service import (
     booking_ref,
@@ -22,6 +24,7 @@ from locat.services.booking_service import (
     rooms_taken,
 )
 from locat.services.payments_service import PaymentStartError, initiate_deposit
+from locat.services.advice_service import advice_for_property, render_outlook
 
 # Shared later with the forecasting layer, so keep the spelling consistent.
 DESTINATIONS = ["Maasai Mara", "Naivasha", "Diani", "Lamu", "Amboseli"]
@@ -96,6 +99,8 @@ def handle_ussd(db: Session, phone: str, text: str) -> str:
         return _my_bookings(db, user, lang)
     if choice == "4":
         return _language(db, phone, lang, rest)
+    if choice == "5":
+        return _outlook(db, user, lang)
     return _end(t(lang, "invalid"))
 
 
@@ -262,3 +267,21 @@ def _language(db: Session, phone: str, lang: str, args: list[str]) -> str:
     user.language = new_lang
     db.commit()
     return _end(t(new_lang, "language_saved"))
+
+# ---------- 5. My outlook (host) ----------
+
+def _outlook(db: Session, user: User | None, lang: str) -> str:
+    """The host's busiest nights, peak and price tip on one screen."""
+    if user is None or user.role != "host":
+        return _end(t(lang, "outlook_no_property"))
+    prop = db.scalar(
+        select(Property).where(Property.host_id == user.id).order_by(Property.id.desc())
+    )
+    if prop is None:
+        return _end(t(lang, "outlook_no_property"))
+    try:
+        advice = advice_for_property(prop, days=60)
+        return _end(render_outlook(advice, prop.name, lang, "ussd"))
+    except Exception:  # the menu must always answer
+        logger.exception("outlook failed for %s", prop.listing_code)
+        return _end(t(lang, "outlook_unavailable"))

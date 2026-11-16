@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # Demo clock: forecasts start on this date (YYYY-MM-DD); empty means today
     demo_today: str = ""
 
+    # Protects endpoints that send SMS; empty disables them
+    admin_token: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

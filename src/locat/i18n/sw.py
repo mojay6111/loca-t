@@ -6,7 +6,8 @@ STRINGS = {
         "1. Tafuta makazi\n"
         "2. Orodhesha mahali pangu\n"
         "3. Nafasi zangu\n"
-        "4. Lugha/Language"
+        "4. Lugha/Language\n"
+        "5. Utabiri wangu"
     ),
     "coming_soon": "Huduma hii inakuja hivi karibuni.",
     "invalid": "Ingizo si sahihi. Tafadhali piga tena.",
@@ -59,4 +60,12 @@ STRINGS = {
         "Malipo ya {ref} ({name}) hayakukamilika, kwa hivyo nafasi imeachiliwa. "
         "Piga tena kuhifadhi."
     ),
+    
+    "outlook_no_property": "Orodhesha mahali pako kwanza (chaguo 2).",
+    "outlook_unavailable": "Utabiri haupatikani sasa. Jaribu tena baadaye.",
+    "outlook_soon_none": "hakuna usiku wenye shughuli wiki 2 zijazo",
+    "outlook_ussd": "{name}\nShughuli nyingi karibuni: {soon}.\nKilele: {peak} imejaa.{tip}",
+    "outlook_tip": " Jaribu KES {price}.",
+    "digest_sms": "Loca-T, {name}: shughuli nyingi karibuni {soon}. Kilele {peak} imejaa.{tip}{quiet} (data ya majaribio)",
+    "digest_quiet": " Utulivu {first} hadi {last} (usiku {n}): toa zawadi ya rufaa.",
 }

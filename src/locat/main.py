@@ -12,6 +12,7 @@ from locat.db import models  # noqa: F401  (registers tables on Base)
 from locat.db.session import Base, engine, get_db
 
 import logging
+from locat.services import advice_service
 from locat.api.routes_dashboard import router as dashboard_router
 
 settings = get_settings()
@@ -34,8 +35,11 @@ logging.getLogger("uvicorn.access").addFilter(_RedactCallbackSecret())
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    try:
+        advice_service.warm_up()  # fit the forecaster once, so the first request is fast
+    except Exception as exc:
+        print(f"[warm-up] forecaster not loaded: {exc}", flush=True)
     yield
-
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.include_router(ussd_router)

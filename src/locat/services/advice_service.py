@@ -10,6 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
+from locat.i18n import t
 
 from locat.config import get_settings
 from locat.forecasting import advisor
@@ -62,3 +63,52 @@ def advice_for_property(prop, days: int = 28, start=None) -> pd.DataFrame:
     forecast = forecaster.forecast(prop.destination, horizon=days, start=first)
     typical = advisor.typical_occupancy(occ[prop.destination])
     return advisor.advise(forecast, feats, typical, prop.base_price)
+
+def warm_up() -> None:
+    """Fit the forecaster now, so the first request is fast."""
+    _load()
+
+
+def _short(day: pd.Timestamp) -> str:
+    return f"{day.strftime('%a')} {day.day} {day.strftime('%b')}"
+
+
+def outlook_facts(advice: pd.DataFrame) -> dict:
+    """Facts for a short message: busiest nights soon, the peak night, a price tip, the quiet stretch."""
+    soon_window = advice.iloc[:14]
+    busy_soon = (
+        soon_window[soon_window["level"] == "busy"]
+        .sort_values("forecast", ascending=False)
+        .head(2)
+        .sort_index()
+    )
+    soon = ", ".join(
+        f"{_short(day)} ~{round(100 * row['forecast'])}%" for day, row in busy_soon.iterrows()
+    )
+    peak_day = advice["forecast"].idxmax()
+    peak = advice.loc[peak_day]
+    quiet = advice[advice["action"] == "promote"]
+    return {
+        "soon": soon,
+        "peak": f"{_short(peak_day)} ~{round(100 * peak['forecast'])}%",
+        "tip_price": int(peak["suggested_price"]) if peak["action"] in ("raise", "test") else None,
+        "quiet": (quiet.index.min(), quiet.index.max(), len(quiet)) if len(quiet) else None,
+    }
+
+
+def render_outlook(advice: pd.DataFrame, name: str, lang: str = "en", kind: str = "ussd") -> str:
+    """The outlook as text: 'ussd' (one screen) or 'sms' (a digest, two SMS at most)."""
+    f = outlook_facts(advice)
+    soon = f["soon"] or t(lang, "outlook_soon_none")
+    tip = t(lang, "outlook_tip", price=f"{f['tip_price']:,}") if f["tip_price"] else ""
+    if kind == "ussd":
+        return t(lang, "outlook_ussd", name=name[:16], soon=soon, peak=f["peak"], tip=tip)
+    quiet = ""
+    if f["quiet"]:
+        first, last, n = f["quiet"]
+        quiet = t(
+            lang, "digest_quiet",
+            first=f"{first.day} {first.strftime('%b')}",
+            last=f"{last.day} {last.strftime('%b')}", n=n,
+        )
+    return t(lang, "digest_sms", name=name, soon=soon, peak=f["peak"], tip=tip, quiet=quiet)

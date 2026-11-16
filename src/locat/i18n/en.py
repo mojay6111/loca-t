@@ -6,7 +6,8 @@ STRINGS = {
         "1. Find a stay\n"
         "2. List my place\n"
         "3. My bookings\n"
-        "4. Lugha/Language"
+        "4. Lugha/Language\n"
+        "5. My outlook"
     ),
     "coming_soon": "This feature is coming soon.",
     "invalid": "Invalid input. Please dial again.",
@@ -60,4 +61,12 @@ STRINGS = {
         "Payment for {ref} ({name}) did not go through, so the booking was "
         "released. Dial again to rebook."
     ),
+    
+    "outlook_no_property": "List your place first (option 2).",
+    "outlook_unavailable": "Outlook is not available right now. Try again later.",
+    "outlook_soon_none": "no busy nights in the next 2 weeks",
+    "outlook_ussd": "{name}\nBusiest soon: {soon}.\nPeak: {peak} full.{tip}",
+    "outlook_tip": " Try KES {price}.",
+    "digest_sms": "Loca-T, {name}: busiest soon {soon}. Peak {peak} full.{tip}{quiet} (demo data)",
+    "digest_quiet": " Quiet {first} to {last} ({n} nights): try a referral reward.",
 }
